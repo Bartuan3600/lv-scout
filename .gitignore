@@ -1,0 +1,44 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+
+# Persönliche Agenten-Einstellungen und lokale Aufträge
+.claude/settings.local.json
+.auftrag.md
+.board/
+
+# Produkt (Next.js und Python)
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+.pytest_cache/
+
+# Lokaler Graphify-Codegraph
+graphify-out/
+
+# Local typed document exports; never commit confidential generated data.
+import-output/
+
+# LV Scout accounts and plans (lib/saas): JSON store and generated auth secret
+.data/
+
+# Local document vault (api/app/vault.py): uploaded files, reports and research, never commit
+data/vault/
+
+# Never commit keys, local databases, logs or confidential data
+web/.env.shared
+.env.local
+web/.env.local
+db/*.duckdb
+db/*.duckdb.wal
+*.log
+web/.data/
+.demo-replay/
+data/datensatz/
+dataset/
