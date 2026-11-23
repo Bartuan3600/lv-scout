@@ -99,6 +99,57 @@ export function markerVersatz(marker: { pct: number }[], minAbstand = 3): number
   }
   return lanes;
 }
+
+/** Upward beeswarm lanes (0 = closest to the track). Nearby markers never share a lane; the pile can grow without a cap. */
+export function beeswarmSpuren(marker: { pct: number }[], minAbstand = 3): number[] {
+  const lanes: number[] = [];
+  for (let i = 0; i < marker.length; i++) {
+    const used = new Set<number>();
+    for (let j = 0; j < i; j++) {
+      if (Math.abs(marker[i].pct - marker[j].pct) < minAbstand) used.add(lanes[j]);
+    }
+    let lane = 0;
+    while (used.has(lane)) lane++;
+    lanes.push(lane);
+  }
+  return lanes;
+}
+
+/** Place in the field: 1 + the number of competitors with a strictly lower implied margin. `von` is the competitor count. */
+export function angebotsRang(unsereMarge: number, konkurrenz: { marge: number }[]): { rang: number; von: number } {
+  return { rang: 1 + konkurrenz.filter((k) => k.marge < unsereMarge).length, von: konkurrenz.length };
+}
+
+export type MarkSeite = "start" | "end" | "center";
+export type MarkenLage = {
+  kombiniert: boolean;
+  median: { pct: number; seite: MarkSeite };
+  mittel: { pct: number; seite: MarkSeite } | null;
+};
+
+/** Positions for the Median/Mean labels so they do not overlap, including when both sit near an edge. */
+export function markenLage(medianPct: number, mittelPct: number | null, minAbstand = 16): MarkenLage {
+  const kante = (pct: number, fallback: MarkSeite): MarkSeite => (pct < 12 ? "start" : pct > 88 ? "end" : fallback);
+  if (mittelPct == null || !Number.isFinite(mittelPct)) {
+    return { kombiniert: false, median: { pct: medianPct, seite: kante(medianPct, "end") }, mittel: null };
+  }
+  if (Math.abs(medianPct - mittelPct) < minAbstand) {
+    const pct = (medianPct + mittelPct) / 2;
+    return { kombiniert: true, median: { pct, seite: kante(pct, "center") }, mittel: { pct, seite: kante(pct, "center") } };
+  }
+  if (medianPct <= mittelPct) {
+    return {
+      kombiniert: false,
+      median: { pct: medianPct, seite: kante(medianPct, "end") },
+      mittel: { pct: mittelPct, seite: kante(mittelPct, "start") },
+    };
+  }
+  return {
+    kombiniert: false,
+    median: { pct: medianPct, seite: kante(medianPct, "start") },
+    mittel: { pct: mittelPct, seite: kante(mittelPct, "end") },
+  };
+}
 const ent = (s: string) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'")
   .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n))).replace(/&amp;/g, "&");
 const text = (xml: string) => [...xml.replace(/<rPh\b[\s\S]*?<\/rPh>/g, "").matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map((m) => ent(m[1])).join("");

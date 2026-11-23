@@ -1,6 +1,6 @@
-/* Margin page (variant A): competitor checklist + iOS-style margin slider.
-   Colours other than the red→green slider come from the app tokens so a parallel
-   palette restyle (e.g. Stripe) merges cleanly. */
+/* Margin page: competitor checklist + iOS-style margin slider, with a beeswarm of
+   bids above the track. Colours other than the red→green slider come from the app
+   tokens so a parallel palette restyle (e.g. Stripe) merges cleanly. */
 @property --slider-hue {
   syntax: "<number>";
   inherits: true;
@@ -90,13 +90,24 @@ a.vaultKnopf { text-decoration: none; }
 .wert { font-size: 28px; font-weight: 600; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1.1;
   color: var(--slider-accent); transition: color .2s ease; }
 .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.rang { display: inline-flex; align-items: center; margin-top: 8px; padding: 4px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--card)); color: var(--accent); font-size: 12.5px; font-weight: 700; }
 .marks { position: relative; height: 32px; margin: 0 18px; }
 .mark { position: absolute; top: 0; font-size: 10.5px; font-weight: 600; color: var(--muted); line-height: 1.15; white-space: nowrap; }
 .mark b { display: block; color: var(--ink); font-weight: 600; }
-.markMedian { transform: translateX(-92%); text-align: right; }
 .markMedian b { color: var(--slider-accent); }
-.markMittel { transform: translateX(-8%); text-align: left; }
-.trackWrap { position: relative; margin: 0 18px; }
+.mark[data-align="end"] { transform: translateX(-100%); text-align: right; }
+.mark[data-align="start"] { transform: translateX(0); text-align: left; }
+.mark[data-align="center"] { transform: translateX(-50%); text-align: center; }
+.markKombi span { display: block; }
+.feld { position: relative; margin: 0 18px; }
+.swarm { --lanes: 1; --gap: 14px; position: relative; height: calc(8px + (var(--lanes) * var(--gap))); margin: 0 0 6px; }
+.unserStrich { position: absolute; top: 0; bottom: 0; width: 2px; border-radius: 1px; background: var(--ink);
+  transform: translateX(-50%); z-index: 3; pointer-events: none; opacity: .82; }
+.unserCaption { position: absolute; left: 50%; bottom: 46px; transform: translateX(-50%);
+  background: var(--card); color: var(--ink); font-size: 10.5px; font-weight: 700; line-height: 1; padding: 1px 4px;
+  border-radius: 4px; white-space: nowrap; }
+.trackWrap { position: relative; }
 .track { position: relative; height: 28px; border-radius: 14px; background: var(--fill-strong); }
 .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 14px; background: var(--slider-accent);
   transition: background .2s ease, width .12s ease; pointer-events: none; }
@@ -145,29 +156,29 @@ a.vaultKnopf { text-decoration: none; }
 
 .zeileAktiv td { background: color-mix(in srgb, var(--accent) 9%, transparent); }
 
-/* Coloured competitor markers on the slider (names live in the legend below). */
-.punkte { position: absolute; left: 0; right: 0; top: 0; height: 16px; pointer-events: none; z-index: 2; }
+/* Coloured competitor markers in a beeswarm above the track (names in the hover/focus tip). */
 .punkt {
   --h: 220;
   --lane: 0;
   position: absolute;
-  top: calc(0px + (var(--lane) * 8px));
   left: 0;
+  bottom: calc(2px + (var(--lane) * var(--gap, 14px)));
+  top: auto;
   pointer-events: auto;
-  width: 14px; height: 14px;
+  width: 12px; height: 12px;
   padding: 0;
   border: 2px solid var(--card);
   border-radius: 50%;
   background: hsl(var(--h) 72% 44%);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 22%, transparent);
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   cursor: pointer;
   z-index: 1;
   transition: transform .15s ease, opacity .15s ease, box-shadow .15s ease, width .15s ease, height .15s ease;
 }
 :root[data-theme="dark"] .punkt,
 :root[data-theme="dark"] .legendePunkt { background: hsl(var(--h) 78% 62%); }
-.punkt:hover, .punkt:focus-visible { z-index: 3; transform: translate(-50%, -50%) scale(1.15); }
+.punkt:hover, .punkt:focus-visible { z-index: 5; transform: translateX(-50%) scale(1.15); }
 .punkt:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, hsl(var(--h) 72% 44%) 45%, transparent); }
 .punktAus {
   background: transparent !important;
@@ -176,7 +187,7 @@ a.vaultKnopf { text-decoration: none; }
 }
 :root[data-theme="dark"] .punktAus { border-color: hsl(var(--h) 78% 62%); }
 .punktAktiv {
-  width: 18px; height: 18px;
+  width: 16px; height: 16px;
   z-index: 4;
   box-shadow: 0 0 0 3px color-mix(in srgb, hsl(var(--h) 72% 44%) 55%, transparent), 0 0 0 1px hsl(var(--h) 72% 44%);
 }
