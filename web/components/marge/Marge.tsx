@@ -1,14 +1,15 @@
 "use client";
 
-// Margin page (variant A): pick competitors with checkboxes, set our margin on an iOS-style
-// slider (red at the cost floor → green at/above the competitor median). Logic in lib/marge.ts.
+// Margin page: pick competitors with checkboxes, set our margin on an iOS-style slider
+// (red at the cost floor → green at/above the competitor median). Competitor bids sit in a
+// beeswarm above the track; names appear on hover/focus. Logic in lib/marge.ts.
 import { useEffect, useMemo, useState } from "react";
 import { AuswahlMenue } from "../ui/AuswahlMenue";
 import { TYP_LABEL, datumText, vaultApi, type VaultEintrag } from "@/lib/vault";
 import { useEinstellungen } from "@/lib/einstellungen";
 import { api } from "@/lib/api";
 import { xlsxAusMargeAntwort } from "@/lib/marge-pdf";
-import { auswerten, bieterFarben, bieterFarbHue, leseGebote, leseXlsx, markerVersatz, sliderMarker, type Bieter, type Gebot } from "@/lib/marge";
+import { angebotsRang, auswerten, beeswarmSpuren, bieterFarben, bieterFarbHue, leseGebote, leseXlsx, markenLage, sliderMarker, type Bieter, type Gebot } from "@/lib/marge";
 import { speichereMargeStand } from "@/lib/wizard";
 import { Icon } from "../icon/Icon";
 import { Info } from "../info/Info";
@@ -140,7 +141,14 @@ export function Marge() {
   const farben = useMemo(() => bieterFarben(r.liste.map((x) => x.name)), [r.liste]);
   const hueVon = (name: string) => farben.get(name) ?? bieterFarbHue(name);
   const marker = useMemo(() => sliderMarker(sichtbar, r.bgkUns, r.boden, r.hiMarge), [sichtbar, r.bgkUns, r.boden, r.hiMarge]);
-  const versatz = useMemo(() => markerVersatz(marker), [marker]);
+  const spuren = useMemo(() => beeswarmSpuren(marker), [marker]);
+  const maxSpur = spuren.reduce((m, x) => Math.max(m, x), 0);
+  const rang = useMemo(() => angebotsRang(r.marge, marker), [r.marge, marker]);
+  const lage = useMemo(() => {
+    if (r.medianMarge == null) return null;
+    const anteil = (x: number) => ((Math.min(r.hiMarge, Math.max(r.boden, x)) - r.boden) / spanne) * 100;
+    return markenLage(anteil(r.medianMarge), r.mittelMarge == null ? null : anteil(r.mittelMarge));
+  }, [r.medianMarge, r.mittelMarge, r.boden, r.hiMarge, spanne]);
   const aktivName = aktiv && sichtbar.some((x) => x.name === aktiv) ? aktiv : null;
   const aktivBieter = aktivName ? r.liste.find((x) => x.name === aktivName) ?? null : null;
   const aktivMarke = aktivName ? marker.find((x) => x.name === aktivName) ?? null : null;
@@ -271,62 +279,66 @@ export function Marge() {
                   {t("Bid")} {euro.format(summe.uns)}
                   {abweichung != null && ` · ${vz(abweichung)}${Math.abs(abweichung).toLocaleString(loc, { maximumFractionDigits: 1 })} ${t("points")} ${t("from the median")}`}
                 </div>
+                {rang.von > 0 && (
+                  <div className={styles.rang} aria-live="polite">{t("You'd be #{n} of {m}", { n: rang.rang, m: rang.von })}</div>
+                )}
               </div>
-              {r.medianMarge != null && (
+              {lage && r.medianMarge != null && (
                 <div className={styles.marks}>
-                  <div className={`${styles.mark} ${styles.markMedian}`} style={{ left: pct(r.medianMarge) }}><b>{t("Median")} {pz(r.medianMarge)}</b></div>
-                  {r.mittelMarge != null && <div className={`${styles.mark} ${styles.markMittel}`} style={{ left: pct(r.mittelMarge) }}><b>{t("Mean")} {pz(r.mittelMarge)}</b></div>}
+                  {lage.kombiniert ? (
+                    <div className={`${styles.mark} ${styles.markKombi}`} data-align={lage.median.seite} style={{ left: `${lage.median.pct}%` }}>
+                      <b>{t("Median")} {pz(r.medianMarge)}</b>
+                      {r.mittelMarge != null && <span>{t("Mean")} {pz(r.mittelMarge)}</span>}
+                    </div>
+                  ) : (
+                    <>
+                      <div className={`${styles.mark} ${styles.markMedian}`} data-align={lage.median.seite} style={{ left: `${lage.median.pct}%` }}><b>{t("Median")} {pz(r.medianMarge)}</b></div>
+                      {lage.mittel && r.mittelMarge != null && (
+                        <div className={`${styles.mark} ${styles.markMittel}`} data-align={lage.mittel.seite} style={{ left: `${lage.mittel.pct}%` }}><b>{t("Mean")} {pz(r.mittelMarge)}</b></div>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
-              <div className={styles.trackWrap}>
-                <div className={styles.track}>
-                  <div className={styles.fill} style={{ width: pct(r.marge) }} />
-                  {r.medianMarge != null && <div className={`${styles.tick} ${styles.tickMedian}`} style={{ left: pct(r.medianMarge) }} />}
-                  {r.mittelMarge != null && <div className={styles.tick} style={{ left: pct(r.mittelMarge) }} />}
+              <div className={styles.feld}>
+                {marker.length > 0 && (
+                  <div className={styles.unserStrich} style={{ left: pct(r.marge) }}>
+                    <span className={styles.unserCaption}>{t("You")}</span>
+                  </div>
+                )}
+                {marker.length > 0 && (
+                  <div className={styles.swarm} role="list" aria-label={t("Competitors on the slider")}
+                    style={{ ["--lanes" as string]: String(maxSpur + 1) }}>
+                    {marker.map((m, i) => (
+                      <button key={m.name} type="button" role="listitem"
+                        className={[styles.punkt, m.ausreisser ? styles.punktAus : "", aktivName === m.name ? styles.punktAktiv : aktivName ? styles.punktGedimmt : ""].filter(Boolean).join(" ")}
+                        style={{ left: `${m.pct}%`, ["--h" as string]: String(hueVon(m.name)), ["--lane" as string]: String(spuren[i] ?? 0) }}
+                        aria-pressed={aktivName === m.name}
+                        aria-label={t("{name}, {pct} margin", { name: m.name, pct: pz(m.marge) }) + (m.ausreisser ? ` · ${t("outlier")}` : "")}
+                        onClick={() => waehle(m.name)}>
+                        <span className={styles.punktTipp}>{m.name} · {pz(m.marge)}{m.ausreisser ? ` · ${t("outlier")}` : ""}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className={styles.trackWrap}>
+                  <div className={styles.track}>
+                    <div className={styles.fill} style={{ width: pct(r.marge) }} />
+                    {r.medianMarge != null && <div className={`${styles.tick} ${styles.tickMedian}`} style={{ left: pct(r.medianMarge) }} />}
+                    {r.mittelMarge != null && <div className={styles.tick} style={{ left: pct(r.mittelMarge) }} />}
+                  </div>
+                  <div className={styles.schiene}>
+                    <input type="range" min={r.boden} max={r.hiMarge} step={0.1} value={r.marge}
+                      aria-label={t("Our margin")}
+                      onChange={(ev) => setMarge(Number(ev.target.value))} />
+                  </div>
                 </div>
-                <div className={styles.schiene}>
-                  <input type="range" min={r.boden} max={r.hiMarge} step={0.1} value={r.marge}
-                    aria-label={t("Our margin")}
-                    onChange={(ev) => setMarge(Number(ev.target.value))} />
-                </div>
-              {marker.length > 0 && (
-                <div className={styles.punkte} role="list" aria-label={t("Competitors on the slider")}>
-                  {marker.map((m, i) => (
-                    <button key={m.name} type="button" role="listitem"
-                      className={[styles.punkt, m.ausreisser ? styles.punktAus : "", aktivName === m.name ? styles.punktAktiv : aktivName ? styles.punktGedimmt : ""].filter(Boolean).join(" ")}
-                      style={{ left: `${m.pct}%`, ["--h" as string]: String(hueVon(m.name)), ["--lane" as string]: String(versatz[i] ?? 0) }}
-                      aria-pressed={aktivName === m.name}
-                      aria-label={t("{name}, {pct} margin", { name: m.name, pct: pz(m.marge) }) + (m.ausreisser ? ` · ${t("outlier")}` : "")}
-                      onClick={() => waehle(m.name)}>
-                      <span className={styles.punktTipp}>{m.name} · {pz(m.marge)}{m.ausreisser ? ` · ${t("outlier")}` : ""}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
               </div>
               <div className={styles.ends}>
                 <span>{t("Cost floor {pct}", { pct: pz(r.boden) })}</span>
                 <span>{pz(r.hiMarge)}</span>
               </div>
               <p className={styles.hintFloor}>{t("The margin cannot go below our pro-rated operating costs plus the {pct} minimum margin.", { pct: pz(r.boden) })}</p>
-              {marker.length > 0 && (
-                <ul className={styles.legende}>
-                  {marker.map((m) => (
-                    <li key={m.name}>
-                      <button type="button"
-                        className={[styles.legendeEintrag, aktivName === m.name ? styles.legendeAktiv : aktivName ? styles.legendeGedimmt : ""].filter(Boolean).join(" ")}
-                        style={{ ["--h" as string]: String(hueVon(m.name)) }}
-                        aria-pressed={aktivName === m.name}
-                        onClick={() => waehle(m.name)}>
-                        <i className={`${styles.legendePunkt} ${m.ausreisser ? styles.punktAus : ""}`} style={{ ["--h" as string]: String(hueVon(m.name)) }} aria-hidden="true" />
-                        <span className={styles.legendeName}>{m.name}</span>
-                        <span className={styles.legendeMarge}>{pz(m.marge)}</span>
-                        {m.ausreisser && <span className={styles.marke}>{t("outlier")}</span>}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
               {aktivBieter && aktivMarke && (
                 <div className={styles.detail}>
                   <div className={styles.detailKopf}>

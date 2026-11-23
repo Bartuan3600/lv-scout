@@ -887,6 +887,9 @@ export const DE: Record<string, string> = {
   "{names} ({pct} markup) by IQR": "{names} ({pct} Aufschlag) per IQR",
   "No outliers in this selection.": "Keine Ausreißer in dieser Auswahl.",
   "Competitors on the slider": "Konkurrenten auf dem Schieberegler",
+  "You'd be #{n} of {m}": "Sie lägen auf Platz {n} von {m}",
+  "You": "Sie",
+
   "{name}, {pct} margin": "{name}, {pct} Marge",
   "Positions of {name}": "Positionen von {name}",
   "No positions for this competitor.": "Keine Positionen für diesen Konkurrenten.",

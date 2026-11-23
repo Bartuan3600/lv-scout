@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 
 registerHooks({ resolve(spec, ctx, next) { try { return next(spec, ctx); } catch (e) { if (spec.startsWith(".")) return next(`${spec}.ts`, ctx); throw e; } } });
-const { auswerten, bereinige, bieterFarbe, bieterFarben, bieterFarbHue, BIETER_FARB_HUES, impliziteMarge, kennzahlen, leseGebote, leseXlsx, markerVersatz, monateFaktor, sliderHue, sliderMarker } = await import("./marge.ts");
+const { angebotsRang, auswerten, beeswarmSpuren, bereinige, bieterFarbe, bieterFarben, bieterFarbHue, BIETER_FARB_HUES, impliziteMarge, kennzahlen, leseGebote, leseXlsx, markenLage, markerVersatz, monateFaktor, sliderHue, sliderMarker } = await import("./marge.ts");
 const { readFileSync } = await import("node:fs");
 
 const tabelle = [
@@ -143,4 +143,38 @@ test("close markers get staggered vertical lanes so they do not fully cover each
   assert.equal(lanes[2], 0); // far from the cluster
   assert.ok(lanes[3] !== 0 && lanes[3] !== 1);
   assert.deepEqual(markerVersatz([{ pct: 0 }, { pct: 50 }, { pct: 100 }], 3), [0, 0, 0]);
+});
+
+test("beeswarm lanes grow upward without a cap, so fifteen close bids never share a lane", () => {
+  const nahe = Array.from({ length: 15 }, (_, i) => ({ pct: 40 + i * 0.2 }));
+  const lanes = beeswarmSpuren(nahe, 3);
+  assert.equal(lanes.length, 15);
+  assert.deepEqual([...lanes].sort((a, b) => a - b), [...Array(15).keys()]);
+  assert.deepEqual(beeswarmSpuren([{ pct: 0 }, { pct: 50 }, { pct: 100 }], 3), [0, 0, 0]);
+  assert.deepEqual(beeswarmSpuren([{ pct: 10 }, { pct: 10.5 }, { pct: 50 }], 3), [0, 1, 0]);
+});
+
+test("our bid rank is 1 plus the number of cheaper competitor margins", () => {
+  const feld = [4.8, 7.2, 7.4, 7.6, 9.8].map((marge) => ({ marge }));
+  assert.deepEqual(angebotsRang(7.3, feld), { rang: 3, von: 5 });
+  assert.deepEqual(angebotsRang(4.8, feld), { rang: 1, von: 5 }); // tie with the cheapest: we are not strictly worse
+  assert.deepEqual(angebotsRang(12, feld), { rang: 6, von: 5 });
+  assert.deepEqual(angebotsRang(10, []), { rang: 1, von: 0 });
+  assert.deepEqual(angebotsRang(8, [{ marge: 10 }]), { rang: 1, von: 1 });
+});
+
+test("median and mean labels combine when they would overlap, and otherwise grow away from each other", () => {
+  const nah = markenLage(56, 57, 16);
+  assert.equal(nah.kombiniert, true);
+  assert.equal(nah.median.seite, "center");
+  const weit = markenLage(20, 80, 16);
+  assert.equal(weit.kombiniert, false);
+  assert.equal(weit.median.seite, "end");
+  assert.equal(weit.mittel.seite, "start");
+  const amRand = markenLage(96, 97, 16);
+  assert.equal(amRand.kombiniert, true);
+  assert.equal(amRand.median.seite, "end"); // stay on the track at the right edge
+  const nurMedian = markenLage(10, null, 16);
+  assert.equal(nurMedian.mittel, null);
+  assert.equal(nurMedian.median.seite, "start");
 });
